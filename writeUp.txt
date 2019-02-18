@@ -1,0 +1,65 @@
+nmap -sC -sV -oA nmap 10.10.10.48
+-sC for default script
+-sV enumarte version
+-oA output all formats
+
+We see several open ports
+port 22 for ssh
+port 53 for dns
+port 80 for http
+
+When we open the webpage at 10.10.10.48, nothing shows up
+curl -vvv 10.10.10.48
+-vvv for super verbous 
+No real answer, except 404 Not Found
+In Burp, changing the Host address to test, we get an answer showing clearly the blocked 
+site
+It exposes : <script src="http://pi.hole/admin/scripts/pi-hole/js/queryads.js"></script>
+So we have DNS name called pi.hole
+As we have a dns port open lets try dig (used to interrogate DNS servers)
+dig @10.10.10.48 pi.hole
+We get and interesting IP 192.168.204.129
+
+
+Going back to Burp if we set pi.hole as the host, we get: 
+HTTP/1.1 301 Moved Permanently
+Location: /admin/
+Content-Length: 0
+Connection: close
+Date: Mon, 18 Feb 2019 07:54:54 GMT
+Server: lighttpd/1.4.35
+On checking 10.10.10.48/admin/ we end up at an admin page
+It looks like its hard to get in without knowing the right password...
+
+lets try ssh pi@10.10.10.48
+hint : raspberry pie ... id pi password raspberry
+We get in.
+If we run sudo -l, we see that the pi user runs all commands as root.
+If we run sudo su -, we get its root
+Once in, running cat root.txt, we get :
+I lost my original root.txt! I think I may have a backup on my USB stick...
+If we run df -lh, we get disk free on everything
+If we run mount, we get similar info
+Interestingly we get info on usbstick, lets look for it
+cd /media/usbstick
+cat damnit.txt ... nothing special in there, as the name might tell ;)
+
+There is one way to recover the file, in linux there a way to grep the file
+strings /dev/sdb we read the bytes straight up from the harddrive
+If we did xxd /dev/sdb, we see a lot of 0000 0000 0000 0000 0000 0000 0000 0000 
+as it is a lot of memory which has not been written to.
+We can : xxd /dev/sdb | grep -v '0000 0000 0000 0000 0000 0000 0000 0000'
+We get some results, to look for the flag (appearing first with strings /dev/sdb and again here)
+We can : grep -a '[a-z0-9]\{32\}' /dev/sdb
+-a to treat binary files as text
+Flag : 3d3e483143ff12ec505d026fa13e020b
+
+grep -B2 -A2 -a '[a-z0-9]\{32\}' /dev/sdb
+grep -B2 -A2 -a 'off the USB' /dev/sdb
+grep allows to get a portion of the file -B2 -A2 2 lines before and after, we useful
+
+
+
+
+
+
